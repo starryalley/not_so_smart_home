@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/syslog"
 	"math"
 	"time"
 
@@ -34,6 +35,8 @@ const MinTemp = 12
 
 // max brightness 100
 const LEDBrightness = 100
+
+const GoogleSheetSecretFile = "/home/starryalley/.secret/client_secret.json"
 
 // =============================
 
@@ -94,6 +97,12 @@ func getTempHum() (float32, float32, error) {
 }
 
 func main() {
+	// configure logger to write to syslog
+	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLED")
+	if err == nil {
+		log.SetOutput(logwriter)
+		log.SetFlags(0)
+	}
 	// for concurrent access to light sensor
 	fileLock := flock.New("/var/lock/tsl2561.lock")
 
@@ -101,7 +110,7 @@ func main() {
 	led := gpio.NewRgbLedDriver(r, PinR, PinG, PinB)
 	lux := i2c.NewTSL2561Driver(r, i2c.WithBus(0), i2c.WithAddress(0x39), i2c.WithTSL2561Gain1X)
 	// for updating to google sheet
-	sheet, err := InitGoogleSheet("client_secret.json")
+	sheet, err := InitGoogleSheet(GoogleSheetSecretFile)
 	if err != nil {
 		panic(err)
 	}
@@ -139,7 +148,7 @@ func main() {
 
 			// now turn on LED
 			led.SetRGB(c.R, c.G, c.B)
-			log.Printf("Temperature:%v*C, Humidity:%v%% (LED: %v,%v,%v) BB:%v, IR:%v, Lux:%v\n",
+			log.Printf("T:%.02f°C H:%.02f%% (LED:%v,%v,%v) BB:%v, IR:%v (Lux:%v)\n",
 				temp, hum, c.R, c.G, c.B, broadband, ir, light)
 
 			// update to google sheet in a goroutine

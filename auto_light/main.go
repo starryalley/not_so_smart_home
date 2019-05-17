@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"log/syslog"
 	"os/exec"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func runCmd(cmd string) {
 var lightOn bool = false
 
 func checkLight() (bool, error) {
-	cmds := strings.Split("miio control 158d0002498b8e power", " ")
+	cmds := strings.Split("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power", " ")
 	out, err := exec.Command(cmds[0], cmds[1:]...).Output()
 	if err != nil {
 		return false, err
@@ -55,7 +56,7 @@ func checkLight() (bool, error) {
 func turnOnLight() {
 	if !lightOn {
 		log.Println("Turning on light")
-		runCmd("miio control 158d0002498b8e power true")
+		runCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power true")
 		lightOn = true
 	}
 }
@@ -63,7 +64,7 @@ func turnOnLight() {
 func turnOffLight() {
 	if lightOn {
 		log.Println("Turning off light")
-		runCmd("miio control 158d0002498b8e power false")
+		runCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power false")
 		lightOn = false
 	}
 }
@@ -115,6 +116,12 @@ func isBright() bool {
 }
 
 func main() {
+	// configure logger to write to syslog
+	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLight")
+	if err == nil {
+		log.SetOutput(logwriter)
+		log.SetFlags(0)
+	}
 	// for concurrent access to light sensor
 	fileLock := flock.New("/var/lock/tsl2561.lock")
 
