@@ -132,10 +132,13 @@ func main() {
 			if !isBright() {
 
 				// if now is past midnight, let's turn off light
-				//  and then do nothing until the next sunset
 				if time.Now().After(midnight) {
 					go turnOffLight()
 					updateSunTime()
+					return
+				}
+				//  and then do nothing until the next sunset
+				if time.Now().Before(sunriseTime) {
 					return
 				}
 
