@@ -27,9 +27,6 @@ var sunsetTime time.Time
 // coming midnight
 var midnight time.Time
 
-// timer used to update sunrise and sunset
-var sunTimeUpdater *time.Timer
-
 func runCmd(cmd string) {
 	cmds := strings.Split(cmd, " ")
 	if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
@@ -102,8 +99,6 @@ func updateSunTime() {
 	if err != nil {
 		log.Printf("Check light failed:%v\n", err)
 	}
-	// setup a timer in 24 hour to update sunrise/sunset/midnight time
-	sunTimeUpdater = time.AfterFunc(24*time.Hour, updateSunTime)
 }
 
 // check if current time is during day
@@ -130,7 +125,6 @@ func main() {
 
 	// do the first sunrise/sunset calculation
 	updateSunTime()
-	defer sunTimeUpdater.Stop()
 
 	work := func() {
 		gobot.Every(10*time.Second, func() {
@@ -141,6 +135,7 @@ func main() {
 				//  and then do nothing until the next sunset
 				if time.Now().After(midnight) {
 					go turnOffLight()
+					updateSunTime()
 					return
 				}
 
