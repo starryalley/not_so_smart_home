@@ -164,10 +164,7 @@ func main() {
 
 				// check if light is off
 				if light <= 15 {
-					// light isn't on, let's turn on
-					log.Printf("BB: %v, IR: %v, Lux: %v => Now it's dark after sunset!\n",
-						broadband, ir, light)
-					// wait until light is turned on
+					// light isn't on, let's turn it on
 					turnOnLight()
 				} else if light > 100 {
 					// too bright, turn off light
