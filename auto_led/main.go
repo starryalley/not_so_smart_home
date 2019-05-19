@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"log/syslog"
 	"math"
@@ -13,13 +12,12 @@ import (
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/drivers/gpio"
-	"gobot.io/x/gobot/drivers/i2c"
 	"gobot.io/x/gobot/platforms/raspi"
 )
 
 // ========== Settings =========
 // update interval in seconds
-const UpdateInterval = 60 * 5
+const UpdateInterval = 60
 
 // GPIO number for DHT temperature sensor
 const GPIOTemp = 4
@@ -35,8 +33,6 @@ const MinTemp = 12
 
 // max brightness 100
 const LEDBrightness = 100
-
-const GoogleSheetSecretFile = "/home/starryalley/.secret/client_secret.json"
 
 // =============================
 
@@ -89,11 +85,23 @@ func temperatureToColor(t float32) color {
 	return interpolate(Colors[colHigh], Colors[colLow], dx).mul(float32(LEDBrightness) / 100)
 }
 
-func getTempHum() (float32, float32, error) {
+func getTempHum(lock *flock.Flock) (float32, float32, error) {
 	logger.ChangePackageLogLevel("dht", logger.ErrorLevel)
-	temperature, humidity, _, err :=
-		dht.ReadDHTxxWithRetry(dht.DHT22, GPIOTemp, false, 10)
-	return temperature, humidity, err
+	var temperature, humidity float32
+	for {
+		locked, err := lock.TryLock()
+		if err != nil {
+			log.Printf("Unable to lock for DHT22:%v\n", err)
+			return 0, 0, err
+		}
+		if locked {
+			defer lock.Unlock()
+			temperature, humidity, _, err =
+				dht.ReadDHTxxWithRetry(dht.DHT22, GPIOTemp, false, 10)
+			break
+		}
+	}
+	return temperature, humidity, nil
 }
 
 func main() {
@@ -103,72 +111,29 @@ func main() {
 		log.SetOutput(logwriter)
 		log.SetFlags(0)
 	}
-	// for concurrent access to light sensor
-	fileLock := flock.New("/var/lock/tsl2561.lock")
+	// possible multi-process access
+	fileLockTemp := flock.New("/var/lock/dht22.lock")
 
 	r := raspi.NewAdaptor()
 	led := gpio.NewRgbLedDriver(r, PinR, PinG, PinB)
-	lux := i2c.NewTSL2561Driver(r, i2c.WithBus(0), i2c.WithAddress(0x39), i2c.WithTSL2561Gain1X)
-	// for updating to google sheet
-	sheet, err := InitGoogleSheet(GoogleSheetSecretFile)
-	if err != nil {
-		panic(err)
-	}
+
 	work := func() {
 		gobot.Every(UpdateInterval*time.Second, func() {
-			temp, hum, err := getTempHum()
+			temp, hum, err := getTempHum(fileLockTemp)
 			if err != nil {
 				log.Printf("read temperature failed:%v\n", err)
 				return
 			}
 			c := temperatureToColor(temp)
-			var broadband, ir uint16
-			var now time.Time
-			for {
-				locked, err := fileLock.TryLock()
-				if err != nil {
-					log.Printf("Unable to lock:%v\n", err)
-					return
-				}
-				if locked {
-					defer fileLock.Unlock()
-					// turn off LED to get accurate lux
-					led.Off()
-					time.Sleep(500 * time.Millisecond)
-					now = time.Now()
-					broadband, ir, err = lux.GetLuminocity()
-					if err != nil {
-						log.Printf("read luminocity failed:%v\n", err)
-						return
-					}
-					break
-				}
-			}
-			light := lux.CalculateLux(broadband, ir)
-
-			// now turn on LED
 			led.SetRGB(c.R, c.G, c.B)
-			log.Printf("T:%.02f°C H:%.02f%% (LED:%v,%v,%v) BB:%v, IR:%v (Lux:%v)\n",
-				temp, hum, c.R, c.G, c.B, broadband, ir, light)
-
-			// update to google sheet in a goroutine
-			go func() {
-				WriteRowToSheet(sheet, []string{
-					now.Format("2006.01.02 15:04:05"),
-					fmt.Sprintf("%.1f", temp),
-					fmt.Sprintf("%.1f", hum),
-					fmt.Sprintf("%d", broadband),
-					fmt.Sprintf("%d", ir),
-					fmt.Sprintf("%d", light),
-				})
-			}()
+			log.Printf("T:%.02f°C H:%.02f%% (LED:%v,%v,%v)\n",
+				temp, hum, c.R, c.G, c.B)
 		})
-
 	}
 
 	robot := gobot.NewRobot("temperatureBot",
 		[]gobot.Connection{r},
-		[]gobot.Device{led, lux},
+		[]gobot.Device{led},
 		work,
 	)
 
