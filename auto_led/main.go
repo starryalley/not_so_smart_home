@@ -126,7 +126,7 @@ func main() {
 			}
 			c := temperatureToColor(temp)
 			led.SetRGB(c.R, c.G, c.B)
-			log.Printf("T:%.02f°C H:%.02f%% (LED:%v,%v,%v)\n",
+			log.Printf("T:%.01f°C H:%.01f%% (LED:%v,%v,%v)\n",
 				temp, hum, c.R, c.G, c.B)
 		})
 	}
