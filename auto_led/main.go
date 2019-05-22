@@ -51,6 +51,8 @@ var Colors = [...]color{
 
 const NumColor = len(Colors)
 
+var lastTemp float32 = 0
+
 func interpolateV(x, y uint8, dx float64) uint8 {
 	return uint8((1-dx)*float64(x) + dx*float64(y))
 }
@@ -119,15 +121,19 @@ func main() {
 
 	work := func() {
 		gobot.Every(UpdateInterval*time.Second, func() {
-			temp, hum, err := getTempHum(fileLockTemp)
+			temp, _, err := getTempHum(fileLockTemp)
 			if err != nil {
 				log.Printf("read temperature failed:%v\n", err)
 				return
 			}
-			c := temperatureToColor(temp)
-			led.SetRGB(c.R, c.G, c.B)
-			log.Printf("T:%.01f°C H:%.01f%% (LED:%v,%v,%v)\n",
-				temp, hum, c.R, c.G, c.B)
+			// temperature changes
+			if lastTemp != temp {
+				c := temperatureToColor(temp)
+				led.SetRGB(c.R, c.G, c.B)
+				log.Printf("Temperature:%.01f°C LED:%v,%v,%v\n",
+					temp, c.R, c.G, c.B)
+				lastTemp = temp
+			}
 		})
 	}
 
