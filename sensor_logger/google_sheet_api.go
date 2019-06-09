@@ -105,7 +105,7 @@ func PrependRow(service *sheets.Service, spreadsheetId, rangeA1 string, row []in
 	}
 	sheetId, err := getSpreadsheet(service, spreadsheetId, a1[0])
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	_, err = insertRow(service, spreadsheetId, sheetId, 1, 2)

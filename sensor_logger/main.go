@@ -16,6 +16,8 @@ import (
 )
 
 // ========== Settings =========
+const MaxRetry = 3
+
 // update interval in minutes
 const UpdateInterval = 10
 
@@ -110,17 +112,22 @@ func main() {
 
 			// update to google sheet in a goroutine
 			go func() {
-				row := []interface{}{
-					now, //.Format("2006.01.02 15:04:05"),
-					temp,
-					hum,
-					broadband,
-					ir,
-					light,
-				}
-				err = PrependRow(service, "15Zyy0_swv2YazuL9UdZ4YYkPfaIwTpPNtPHLAlsLtcY", "RawData!A2:F2", row)
-				if err != nil {
-					log.Println(err)
+				for i := 0; i < MaxRetry; {
+					row := []interface{}{
+						now, //.Format("2006.01.02 15:04:05"),
+						temp,
+						hum,
+						broadband,
+						ir,
+						light,
+					}
+					err = PrependRow(service, "15Zyy0_swv2YazuL9UdZ4YYkPfaIwTpPNtPHLAlsLtcY", "RawData!A2:F2", row)
+					if err != nil {
+						log.Println(err)
+						i++
+					} else {
+						break
+					}
 				}
 			}()
 
