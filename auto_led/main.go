@@ -29,7 +29,7 @@ const PinB = "15"
 
 // max/min temperature in the room
 const MaxTemp = 25
-const MinTemp = 12
+const MinTemp = 10
 
 // max brightness 100
 const LEDBrightness = 100
