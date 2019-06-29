@@ -10,7 +10,6 @@ import (
 	"github.com/gofrs/flock"
 
 	"gobot.io/x/gobot"
-	"gobot.io/x/gobot/drivers/gpio"
 	"gobot.io/x/gobot/drivers/i2c"
 	"gobot.io/x/gobot/platforms/raspi"
 )
@@ -23,11 +22,6 @@ const UpdateInterval = 10
 
 // GPIO number for DHT temperature sensor
 const GPIOTemp = 4
-
-// Pin names for LED R,G,B pins
-const PinR = "11"
-const PinG = "13"
-const PinB = "15"
 
 // google sheet credential json file
 const GoogleSheetCredential = "/home/starryalley/.secret/google_sheet_credentials.json"
@@ -73,7 +67,6 @@ func main() {
 
 	// setup gobot
 	r := raspi.NewAdaptor()
-	led := gpio.NewRgbLedDriver(r, PinR, PinG, PinB)
 	lux := i2c.NewTSL2561Driver(r, i2c.WithBus(0), i2c.WithAddress(0x39), i2c.WithTSL2561Gain1X)
 
 	work := func() {
@@ -88,15 +81,12 @@ func main() {
 			for {
 				locked, err := fileLockLight.TryLock()
 				if err != nil {
-					log.Printf("unable to lock:%v\n", err)
-					return
+					log.Printf("unable to lock for light sensor:%v\n", err)
+					time.Sleep(500 * time.Millisecond)
+					continue
 				}
 				if locked {
 					defer fileLockLight.Unlock()
-					// turn off LED to get accurate lux
-					led.Off()
-					defer led.On()
-					time.Sleep(500 * time.Millisecond)
 					broadband, ir, err = lux.GetLuminocity()
 					if err != nil {
 						log.Printf("read luminocity failed:%v\n", err)
@@ -136,7 +126,7 @@ func main() {
 
 	robot := gobot.NewRobot("SensorLoggerBot",
 		[]gobot.Connection{r},
-		[]gobot.Device{led, lux},
+		[]gobot.Device{lux},
 		work,
 	)
 
