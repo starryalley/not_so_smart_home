@@ -79,36 +79,37 @@ func saveToken(path string, token *oauth2.Token) {
 }
 
 // ref: https://gist.github.com/bati11/b2ba535f74c7bcb723a2ee46585814d8
-func insertRow(sheetService *sheets.Service, spreadsheetId string, sheetId, startId, endId int64) (*sheets.BatchUpdateSpreadsheetResponse, error) {
+func insertRow(sheetService *sheets.Service, spreadsheetID string, sheetID, startID, endID int64) (*sheets.BatchUpdateSpreadsheetResponse, error) {
 	req := sheets.Request{
 		InsertDimension: &sheets.InsertDimensionRequest{
 			InheritFromBefore: false,
 			Range: &sheets.DimensionRange{
 				Dimension:  "ROWS",
-				StartIndex: startId,
-				EndIndex:   endId,
-				SheetId:    sheetId,
+				StartIndex: startID,
+				EndIndex:   endID,
+				SheetId:    sheetID,
 			},
 		},
 	}
 	insertRowReq := sheets.BatchUpdateSpreadsheetRequest{
 		Requests: []*sheets.Request{&req},
 	}
-	return sheetService.Spreadsheets.BatchUpdate(spreadsheetId, &insertRowReq).Do()
+	return sheetService.Spreadsheets.BatchUpdate(spreadsheetID, &insertRowReq).Do()
 }
 
-func PrependRow(service *sheets.Service, spreadsheetId, rangeA1 string, row []interface{}) error {
+// PrependRow will prepend a row on spreat sheets
+func PrependRow(service *sheets.Service, spreadsheetID, rangeA1 string, row []interface{}) error {
 
 	a1 := strings.Split(rangeA1, "!")
 	if len(a1) != 2 {
 		return errors.New("unable to parse A1 notation " + rangeA1)
 	}
-	sheetId, err := getSpreadsheet(service, spreadsheetId, a1[0])
+	sheetID, err := getSpreadsheet(service, spreadsheetID, a1[0])
 	if err != nil {
 		return err
 	}
 
-	_, err = insertRow(service, spreadsheetId, sheetId, 1, 2)
+	_, err = insertRow(service, spreadsheetID, sheetID, 1, 2)
 	if err != nil {
 		log.Printf("sheet insert failed: %v", err)
 		return err
@@ -120,7 +121,7 @@ func PrependRow(service *sheets.Service, spreadsheetId, rangeA1 string, row []in
 			row,
 		},
 	}
-	_, err = service.Spreadsheets.Values.Update(spreadsheetId, rangeA1, valueRange).ValueInputOption("USER_ENTERED").Do()
+	_, err = service.Spreadsheets.Values.Update(spreadsheetID, rangeA1, valueRange).ValueInputOption("USER_ENTERED").Do()
 	if err != nil {
 		log.Printf("sheet update failed: %v", err)
 		return err
@@ -128,15 +129,16 @@ func PrependRow(service *sheets.Service, spreadsheetId, rangeA1 string, row []in
 	return nil
 }
 
-func sheetId(s *sheets.Spreadsheet, sheetName string) (int64, error) {
+func sheetID(s *sheets.Spreadsheet, sheetName string) (int64, error) {
 	for _, sheet := range s.Sheets {
 		if sheet.Properties.Title == sheetName {
-			return sheet.Properties.SheetId, nil
+			return sheet.Properties.SheetID, nil
 		}
 	}
 	return 0, errors.New("couldn't find sheet:" + sheetName)
 }
 
+// InitGoogleSheet initialise connection to google sheet service
 func InitGoogleSheet(credentialFilename string) (*sheets.Service, error) {
 	b, err := ioutil.ReadFile(credentialFilename)
 	if err != nil {
@@ -166,10 +168,10 @@ func getSpreadsheet(srv *sheets.Service, id string, sheetName string) (int64, er
 		return 0, err
 	}
 
-	sheetId, err := sheetId(spreadsheet, sheetName)
+	sheetID, err := sheetID(spreadsheet, sheetName)
 	if err != nil {
 		log.Println(err)
 		return 0, err
 	}
-	return sheetId, nil
+	return sheetID, nil
 }

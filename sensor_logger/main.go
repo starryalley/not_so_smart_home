@@ -15,16 +15,16 @@ import (
 )
 
 // ========== Settings =========
-const MaxRetry = 3
+const maxRetry = 3
 
 // update interval in minutes
-const UpdateInterval = 10
+const updateInterval = 10
 
 // GPIO number for DHT temperature sensor
-const GPIOTemp = 4
+const gpioTemp = 4
 
 // google sheet credential json file
-const GoogleSheetCredential = "/home/starryalley/.secret/google_sheet_credentials.json"
+const googleSheetCredential = "/home/starryalley/.secret/google_sheet_credentials.json"
 
 // =============================
 
@@ -38,9 +38,9 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 			return 0, 0, err
 		}
 		if locked {
-			defer lock.Unlock()
 			temperature, humidity, _, err =
-				dht.ReadDHTxxWithRetry(dht.DHT22, GPIOTemp, false, 10)
+				dht.ReadDHTxxWithRetry(dht.DHT22, gpioTemp, false, 10)
+			lock.Unlock()
 			break
 		}
 	}
@@ -50,17 +50,19 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 func main() {
 	// configure logger to write to syslog
 	logwriter, err := syslog.New(syslog.LOG_NOTICE, "SensorLogger")
-	if err == nil {
-		log.SetOutput(logwriter)
-		log.SetFlags(0)
+	if err != nil {
+		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
+		return
 	}
+	log.SetOutput(logwriter)
+	log.SetFlags(0)
 
 	// possible multi-process access to those hardware
 	fileLockLight := flock.New("/var/lock/tsl2561.lock")
 	fileLockTemp := flock.New("/var/lock/dht22.lock")
 
 	// initialise google sheet
-	service, err := InitGoogleSheet(GoogleSheetCredential)
+	service, err := InitGoogleSheet(googleSheetCredential)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +72,7 @@ func main() {
 	lux := i2c.NewTSL2561Driver(r, i2c.WithBus(0), i2c.WithAddress(0x39), i2c.WithTSL2561Gain1X)
 
 	work := func() {
-		gobot.Every(UpdateInterval*time.Minute, func() {
+		gobot.Every(updateInterval*time.Minute, func() {
 			now := time.Now()
 			temp, hum, err := getTempHum(fileLockTemp)
 			if err != nil {
@@ -86,8 +88,8 @@ func main() {
 					continue
 				}
 				if locked {
-					defer fileLockLight.Unlock()
 					broadband, ir, err = lux.GetLuminocity()
+					fileLockLight.Unlock()
 					if err != nil {
 						log.Printf("read luminocity failed:%v\n", err)
 						return
@@ -102,7 +104,7 @@ func main() {
 
 			// update to google sheet in a goroutine
 			go func() {
-				for i := 0; i < MaxRetry; {
+				for i := 0; i < maxRetry; {
 					row := []interface{}{
 						now, //.Format("2006.01.02 15:04:05"),
 						temp,

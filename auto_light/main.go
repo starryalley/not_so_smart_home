@@ -16,9 +16,9 @@ import (
 )
 
 // Ringwood, VIC, Australia (AEST)
-const Latitude = -37.8114
-const Longitude = 145.2306
-const UTC = 10
+const latitude = -37.8114
+const longitude = 145.2306
+const utc = 10
 
 // calculated sunrise and sunset
 var sunriseTime time.Time
@@ -34,7 +34,7 @@ func runCmd(cmd string) {
 	}
 }
 
-var lightOn bool = false
+var lightOn = false
 
 func checkLight() (bool, error) {
 	cmds := strings.Split("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power", " ")
@@ -69,9 +69,9 @@ func turnOffLight() {
 func updateSunTime() {
 	now := time.Now()
 	p := sunrisesunset.Parameters{
-		Latitude:  Latitude,
-		Longitude: Longitude,
-		UtcOffset: UTC,
+		latitude:  latitude,
+		longitude: longitude,
+		utcOffset: utc,
 		Date:      time.Now(),
 	}
 
@@ -113,10 +113,13 @@ func isBright() bool {
 func main() {
 	// configure logger to write to syslog
 	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLight")
-	if err == nil {
-		log.SetOutput(logwriter)
-		log.SetFlags(0)
+	if err != nil {
+		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
+		return
 	}
+	log.SetOutput(logwriter)
+	log.SetFlags(0)
+
 	// for concurrent access to light sensor
 	fileLock := flock.New("/var/lock/tsl2561.lock")
 
@@ -150,13 +153,13 @@ func main() {
 						return
 					}
 					if locked {
-						defer fileLock.Unlock()
 						// get current light measurement
 						broadband, ir, err = lux.GetLuminocity()
 						if err != nil {
 							log.Printf("read luminocity failed:%v\n", err)
 							return
 						}
+						fileLock.Unlock()
 						break
 					}
 				}

@@ -17,22 +17,22 @@ import (
 
 // ========== Settings =========
 // update interval in seconds
-const UpdateInterval = 60
+const updateInterval = 60
 
 // GPIO number for DHT temperature sensor
-const GPIOTemp = 4
+const gpioTemp = 4
 
 // Pin names for LED R,G,B pins
-const PinR = "11"
-const PinG = "13"
-const PinB = "15"
+const pinR = "11"
+const pinG = "13"
+const pinB = "15"
 
 // max/min temperature in the room
-const MaxTemp = 25
-const MinTemp = 10
+const maxTemp = 25
+const minTemp = 10
 
 // max brightness 100
-const LEDBrightness = 100
+const ledBrightness = 100
 
 // =============================
 
@@ -40,7 +40,7 @@ type color struct {
 	R, G, B uint8
 }
 
-var Colors = [...]color{
+var definedColors = [...]color{
 	{255, 0, 255}, //purple
 	{0, 0, 255},   //blue
 	{0, 255, 255}, //cyan
@@ -49,9 +49,9 @@ var Colors = [...]color{
 	{255, 0, 0},   //red
 }
 
-const NumColor = len(Colors)
+const numColor = len(definedColors)
 
-var lastTemp float32 = 0
+var lastTemp float32
 
 func interpolateV(x, y uint8, dx float64) uint8 {
 	return uint8((1-dx)*float64(x) + dx*float64(y))
@@ -75,16 +75,16 @@ func (c color) mul(s float32) color {
 
 // ref: https://github.com/lilspikey/arduino_sketches/blob/master/nightlight/nightlight.h
 func temperatureToColor(t float32) color {
-	if t < MinTemp {
-		return Colors[0]
-	} else if t > MaxTemp {
-		return Colors[NumColor-1]
+	if t < minTemp {
+		return definedColors[0]
+	} else if t > maxTemp {
+		return definedColors[numColor-1]
 	}
-	col := float64(t-MinTemp) / (MaxTemp - MinTemp) * float64(NumColor-1)
+	col := float64(t-minTemp) / (maxTemp - minTemp) * float64(numColor-1)
 	colLow := int(math.Floor(col))
 	colHigh := int(math.Ceil(col))
 	dx := float64(colHigh) - col
-	return interpolate(Colors[colHigh], Colors[colLow], dx).mul(float32(LEDBrightness) / 100)
+	return interpolate(definedColors[colHigh], definedColors[colLow], dx).mul(float32(ledBrightness) / 100)
 }
 
 func getTempHum(lock *flock.Flock) (float32, float32, error) {
@@ -97,9 +97,9 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 			return 0, 0, err
 		}
 		if locked {
-			defer lock.Unlock()
 			temperature, humidity, _, err =
-				dht.ReadDHTxxWithRetry(dht.DHT22, GPIOTemp, false, 10)
+				dht.ReadDHTxxWithRetry(dht.DHT22, gpioTemp, false, 10)
+			lock.Unlock()
 			break
 		}
 	}
@@ -109,18 +109,21 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 func main() {
 	// configure logger to write to syslog
 	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLED")
-	if err == nil {
-		log.SetOutput(logwriter)
-		log.SetFlags(0)
+	if err != nil {
+		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
+		return
 	}
+	log.SetOutput(logwriter)
+	log.SetFlags(0)
+
 	// possible multi-process access
 	fileLockTemp := flock.New("/var/lock/dht22.lock")
 
 	r := raspi.NewAdaptor()
-	led := gpio.NewRgbLedDriver(r, PinR, PinG, PinB)
+	led := gpio.NewRgbLedDriver(r, pinR, pinG, pinB)
 
 	work := func() {
-		gobot.Every(UpdateInterval*time.Second, func() {
+		gobot.Every(updateInterval*time.Second, func() {
 			temp, _, err := getTempHum(fileLockTemp)
 			if err != nil {
 				log.Printf("read temperature failed:%v\n", err)
