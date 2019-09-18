@@ -69,9 +69,9 @@ func turnOffLight() {
 func updateSunTime() {
 	now := time.Now()
 	p := sunrisesunset.Parameters{
-		latitude:  latitude,
-		longitude: longitude,
-		utcOffset: utc,
+		Latitude:  latitude,
+		Longitude: longitude,
+		UtcOffset: utc,
 		Date:      time.Now(),
 	}
 

@@ -132,7 +132,7 @@ func PrependRow(service *sheets.Service, spreadsheetID, rangeA1 string, row []in
 func sheetID(s *sheets.Spreadsheet, sheetName string) (int64, error) {
 	for _, sheet := range s.Sheets {
 		if sheet.Properties.Title == sheetName {
-			return sheet.Properties.SheetID, nil
+			return sheet.Properties.SheetId, nil
 		}
 	}
 	return 0, errors.New("couldn't find sheet:" + sheetName)
