@@ -28,6 +28,14 @@ If it's already sunset and no one is home (dark in the living room), the floor l
 
 When living room is bright (someone is there) the floor lamp will turn off as well.
 
+## Door monitor
+
+If the door is kept open for too long, send a warning notification to my phone through IFTTT webhook. 
+
+Usually this is feasible through Xiaomi's app but that app is a crap. I never got notification while my wife gets it most of the time. So I think I'd better write my own.
+
+This is to prevent myself from leaving the garage door open for the whole day.
+
 
 ## Save sensors data to Google spreadsheet
 
