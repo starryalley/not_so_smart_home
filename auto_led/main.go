@@ -98,7 +98,11 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 		}
 		if locked {
 			temperature, humidity, _, err =
-				dht.ReadDHTxxWithRetry(dht.DHT22, gpioTemp, false, 10)
+				dht.ReadDHTxxWithRetry(dht.DHT22, gpioTemp, false, 30)
+			if err != nil {
+				lock.Unlock()
+				return 0, 0, err
+			}
 			lock.Unlock()
 			break
 		}
