@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"log"
+	"log/syslog"
 	"os/exec"
 	"path"
 	"strings"
@@ -52,10 +53,11 @@ func getMagnetSensorContact(sensorID string) (bool, error) {
 }
 
 func updateSensorState(eventCh chan<- string, quit <-chan struct{}) {
+	log.Printf("door sensor updater started\n")
 	for {
 		select {
 		case <-quit:
-			log.Printf("sensor updater exited\n")
+			log.Printf("door sensor updater exited\n")
 			return
 		case <-time.After(checkInterval):
 			closed, err := getMagnetSensorContact(doorSensorID)
@@ -102,6 +104,15 @@ func monitorDoor(quit <-chan struct{}) {
 }
 
 func main() {
+	// configure logger to write to syslog
+	logwriter, err := syslog.New(syslog.LOG_NOTICE, "DoorMonitor")
+	if err != nil {
+		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
+		return
+	}
+	log.SetOutput(logwriter)
+	log.SetFlags(0)
+
 	eventCh := make(chan string)
 	quitCh := make(chan struct{})
 	defer close(quitCh)
