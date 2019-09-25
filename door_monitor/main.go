@@ -20,7 +20,7 @@ const binPath = "/usr/local/bin/"
 const doorSensorID = "158d0002676aec"
 
 // update sensor state in this interval
-const checkInterval = 20 * time.Second
+const checkInterval = 30 * time.Second
 
 // how long if door is left open is considered a warning
 const doorOpenWarningTimeout = 2 * time.Minute
