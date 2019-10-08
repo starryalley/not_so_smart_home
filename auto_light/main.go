@@ -15,10 +15,9 @@ import (
 	"gobot.io/x/gobot/platforms/raspi"
 )
 
-// Ringwood, VIC, Australia (AEST)
+// Ringwood, VIC, Australia
 const latitude = -37.8114
 const longitude = 145.2306
-const utc = 10
 
 // calculated sunrise and sunset
 var sunriseTime time.Time
@@ -68,10 +67,11 @@ func turnOffLight() {
 
 func updateSunTime() {
 	now := time.Now()
+	_, offset := now.Zone()
 	p := sunrisesunset.Parameters{
 		Latitude:  latitude,
 		Longitude: longitude,
-		UtcOffset: utc,
+		UtcOffset: float64(offset) / 60 / 60,
 		Date:      time.Now(),
 	}
 
