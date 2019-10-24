@@ -169,7 +169,7 @@ func main() {
 				if light <= 15 {
 					// light isn't on, let's turn it on
 					turnOnLight()
-				} else if light > 100 {
+				} else if light > 120 {
 					// too bright, turn off light
 					turnOffLight()
 				}
