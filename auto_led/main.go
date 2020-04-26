@@ -52,6 +52,8 @@ var definedColors = [...]color{
 const numColor = len(definedColors)
 
 var lastTemp float32
+var lastTempColor color
+var lastAqiColor color
 
 func interpolateV(x, y uint8, dx float64) uint8 {
 	return uint8((1-dx)*float64(x) + dx*float64(y))
@@ -87,6 +89,28 @@ func temperatureToColor(t float32) color {
 	return interpolate(definedColors[colHigh], definedColors[colLow], dx).mul(float32(ledBrightness) / 100)
 }
 
+func aqiToColor(idx float64) color {
+	if idx <= 50 {
+		// green
+		return color{0, 255, 0}
+	} else if idx <= 100 {
+		// yellow
+		return color{255, 255, 0}
+	} else if idx <= 150 {
+		// orange
+		return color{255, 127, 0}
+	} else if idx <= 200 {
+		// red
+		return color{255, 0, 0}
+	} else if idx <= 300 {
+		// purple
+		return color{255, 0, 255}
+	} else {
+		// brown #7E0023
+		return color{126, 0, 35}
+	}
+}
+
 func getTempHum(lock *flock.Flock) (float32, float32, error) {
 	logger.ChangePackageLogLevel("dht", logger.ErrorLevel)
 	var temperature, humidity float32
@@ -110,6 +134,29 @@ func getTempHum(lock *flock.Flock) (float32, float32, error) {
 	return temperature, humidity, nil
 }
 
+func updateAQI() {
+	aqi, err := getAQI()
+	if err != nil {
+		log.Println("get AQI error:", err)
+		return
+	}
+	lastAqiColor = aqiToColor(aqi)
+}
+
+func updateTemperature(fileLockTemp *flock.Flock) {
+	temp, _, err := getTempHum(fileLockTemp)
+	if err != nil {
+		log.Printf("read temperature failed:%v\n", err)
+		return
+	}
+	// temperature changes
+	if lastTemp != temp {
+		lastTempColor = temperatureToColor(temp)
+		lastTemp = temp
+		log.Printf("Temperature:%.01f°C\n", lastTemp)
+	}
+}
+
 func main() {
 	// configure logger to write to syslog
 	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLED")
@@ -127,20 +174,27 @@ func main() {
 	led := gpio.NewRgbLedDriver(r, pinR, pinG, pinB)
 
 	work := func() {
+		// update temperature and LED every 1 min
 		gobot.Every(updateInterval*time.Second, func() {
-			temp, _, err := getTempHum(fileLockTemp)
-			if err != nil {
-				log.Printf("read temperature failed:%v\n", err)
-				return
-			}
-			// temperature changes
-			if lastTemp != temp {
-				c := temperatureToColor(temp)
-				led.SetRGB(c.R, c.G, c.B)
-				log.Printf("Temperature:%.01f°C LED:%v,%v,%v\n",
-					temp, c.R, c.G, c.B)
-				lastTemp = temp
-			}
+			updateTemperature(fileLockTemp)
+			go func() {
+				// blink AQI for 10 seconds
+				log.Printf("Set AQI RGB LED:%v,%v,%v\n", lastAqiColor.R, lastAqiColor.G, lastAqiColor.B)
+				led.SetRGB(lastAqiColor.R, lastAqiColor.G, lastAqiColor.B)
+				for i := 0; i < 5; i++ {
+					time.Sleep(time.Second)
+					led.Toggle() // off
+					time.Sleep(time.Second)
+					led.Toggle() // on
+				}
+				// solid RGB for temperature
+				log.Printf("Set Temperature RGB LED:%v,%v,%v\n", lastTempColor.R, lastTempColor.G, lastTempColor.B)
+				led.SetRGB(lastTempColor.R, lastTempColor.G, lastTempColor.B)
+			}()
+		})
+		// update AQI every 1 hour
+		gobot.Every(time.Hour, func() {
+			updateAQI()
 		})
 	}
 
@@ -149,6 +203,9 @@ func main() {
 		[]gobot.Device{led},
 		work,
 	)
+
+	// get initial AQI
+	updateAQI()
 
 	robot.Start()
 }
