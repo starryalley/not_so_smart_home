@@ -2,64 +2,28 @@ package main
 
 import (
 	"log"
-	"log/syslog"
 	"time"
 
-	"github.com/d2r2/go-dht"
-	logger "github.com/d2r2/go-logger"
 	"github.com/gofrs/flock"
 
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/drivers/i2c"
 	"gobot.io/x/gobot/platforms/raspi"
+
+	"github.com/starryalley/smart_home/pkg/logs"
+	"github.com/starryalley/smart_home/pkg/sensors"
 )
 
-// ========== Settings =========
-const maxRetry = 3
-
-// update interval in minutes
-const updateInterval = 10
-
-// GPIO number for DHT temperature sensor
-const gpioTemp = 4
-
-// google sheet credential json file
-const googleSheetCredential = "/home/starryalley/.secret/google_sheet_credentials.json"
+const (
+	maxRetry              = 3
+	updateInterval        = 10                                                        // update interval in minutes
+	googleSheetCredential = "/home/starryalley/.secret/google_sheet_credentials.json" // google sheet credential json file
+)
 
 // =============================
 
-func getTempHum(lock *flock.Flock) (float32, float32, error) {
-	logger.ChangePackageLogLevel("dht", logger.ErrorLevel)
-	var temperature, humidity float32
-	for {
-		locked, err := lock.TryLock()
-		if err != nil {
-			log.Printf("unable to lock for DHT22:%v\n", err)
-			return 0, 0, err
-		}
-		if locked {
-			temperature, humidity, _, err =
-				dht.ReadDHTxxWithRetry(dht.DHT22, gpioTemp, false, 30)
-			if err != nil {
-				lock.Unlock()
-				return 0, 0, err
-			}
-			lock.Unlock()
-			break
-		}
-	}
-	return temperature, humidity, nil
-}
-
 func main() {
-	// configure logger to write to syslog
-	logwriter, err := syslog.New(syslog.LOG_NOTICE, "SensorLogger")
-	if err != nil {
-		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
-		return
-	}
-	log.SetOutput(logwriter)
-	log.SetFlags(0)
+	logs.SetupSyslog("SensorLogger")
 
 	// possible multi-process access to those hardware
 	fileLockLight := flock.New("/var/lock/tsl2561.lock")
@@ -78,7 +42,7 @@ func main() {
 	work := func() {
 		gobot.Every(updateInterval*time.Minute, func() {
 			now := time.Now()
-			temp, hum, err := getTempHum(fileLockTemp)
+			temp, hum, err := sensors.GetTempHum(fileLockTemp)
 			if err != nil {
 				log.Printf("read temperature failed:%v\n", err)
 				return

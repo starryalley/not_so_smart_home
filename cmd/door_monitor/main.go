@@ -1,15 +1,15 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"log"
-	"log/syslog"
-	"os/exec"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/scotow/notigo"
+
+	"github.com/starryalley/smart_home/pkg/cmds"
+	"github.com/starryalley/smart_home/pkg/logs"
 )
 
 // for RPi
@@ -33,12 +33,10 @@ const iftttEventName = "your_ifttt_webhook_event"
 var doorOpened bool
 
 func getMagnetSensorContact(sensorID string) (bool, error) {
-	params := []string{path.Join(binPath, "miio"), "control", doorSensorID, "contact"}
-	out, err := exec.Command(path.Join(binPath, "node"), params...).Output()
+	outs, err := cmds.RunCmdWithResult(fmt.Sprintf("%s %s control %s contact", path.Join(binPath, "node"), path.Join(binPath, "miio"), doorSensorID))
 	if err != nil {
 		return false, err
 	}
-	outs := strings.Split(string(out), "\n")
 	if len(outs) == 3 {
 		//log.Printf("magnet sensor contact:%s\n", outs[1])
 		if string(outs[1]) == "true" {
@@ -47,9 +45,9 @@ func getMagnetSensorContact(sensorID string) (bool, error) {
 		if string(outs[1]) == "false" {
 			return false, nil
 		}
-		return false, errors.New("Unexpected sensor output" + outs[1])
+		return false, fmt.Errorf("Unexpected sensor output:%v", outs[1])
 	}
-	return false, errors.New("Unexpected miio command output" + string(out))
+	return false, fmt.Errorf("Unexpected miio command output:%v", outs)
 }
 
 func updateSensorState(eventCh chan<- string, quit <-chan struct{}) {
@@ -104,14 +102,7 @@ func monitorDoor(quit <-chan struct{}) {
 }
 
 func main() {
-	// configure logger to write to syslog
-	logwriter, err := syslog.New(syslog.LOG_NOTICE, "DoorMonitor")
-	if err != nil {
-		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
-		return
-	}
-	log.SetOutput(logwriter)
-	log.SetFlags(0)
+	logs.SetupSyslog("DoorMonitor")
 
 	eventCh := make(chan string)
 	quitCh := make(chan struct{})

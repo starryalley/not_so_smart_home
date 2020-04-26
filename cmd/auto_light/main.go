@@ -2,9 +2,6 @@ package main
 
 import (
 	"log"
-	"log/syslog"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -13,6 +10,9 @@ import (
 	"gobot.io/x/gobot"
 	"gobot.io/x/gobot/drivers/i2c"
 	"gobot.io/x/gobot/platforms/raspi"
+
+	"github.com/starryalley/smart_home/pkg/cmds"
+	"github.com/starryalley/smart_home/pkg/logs"
 )
 
 // Ringwood, VIC, Australia
@@ -26,33 +26,21 @@ var sunsetTime time.Time
 // coming midnight
 var midnight time.Time
 
-func runCmd(cmd string) {
-	cmds := strings.Split(cmd, " ")
-	if err := exec.Command(cmds[0], cmds[1:]...).Run(); err != nil {
-		log.Printf("Error running shell command:%v\n", err)
-	}
-}
-
 var lightOn = false
 
 func checkLight() (bool, error) {
-	cmds := strings.Split("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power", " ")
-	out, err := exec.Command(cmds[0], cmds[1:]...).Output()
+	outs, err := cmds.RunCmdWithResult("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power")
 	if err != nil {
 		return false, err
 	}
-	outs := strings.Split(string(out), "\n")
 	log.Printf("Light On:%s", outs[1])
-	if string(outs[1]) == "true" {
-		return true, nil
-	}
-	return false, nil
+	return string(outs[1]) == "true", nil
 }
 
 func turnOnLight() {
 	if !lightOn {
 		log.Println("Turning on light")
-		runCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power true")
+		cmds.RunCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power true")
 		lightOn = true
 	}
 }
@@ -60,7 +48,7 @@ func turnOnLight() {
 func turnOffLight() {
 	if lightOn {
 		log.Println("Turning off light")
-		runCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power false")
+		cmds.RunCmd("/usr/local/lib/nodejs/bin/node /usr/local/lib/nodejs/bin/miio control 158d0002498b8e power false")
 		lightOn = false
 	}
 }
@@ -111,14 +99,7 @@ func isBright() bool {
 }
 
 func main() {
-	// configure logger to write to syslog
-	logwriter, err := syslog.New(syslog.LOG_NOTICE, "AutoLight")
-	if err != nil {
-		log.Printf("Unable to configure logger to write to syslog:%s\n", err)
-		return
-	}
-	log.SetOutput(logwriter)
-	log.SetFlags(0)
+	logs.SetupSyslog("AutoLight")
 
 	// for concurrent access to light sensor
 	fileLock := flock.New("/var/lock/tsl2561.lock")
