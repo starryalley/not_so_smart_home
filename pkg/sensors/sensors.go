@@ -3,9 +3,9 @@ package sensors
 import (
 	"log"
 
-	"github.com/d2r2/go-dht"
 	logger "github.com/d2r2/go-logger"
 	"github.com/gofrs/flock"
+	"github.com/starryalley/go-dht"
 )
 
 // GPIO number for DHT temperature sensor
