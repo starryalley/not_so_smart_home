@@ -65,14 +65,15 @@ func main() {
 		gobot.Every(updateInterval*time.Second, func() {
 			updateTemperature(fileLockTemp)
 			go func() {
-				// blink AQI for some time
+				// alternating between AQI and temperature color for some time
 				//log.Printf("Set AQI RGB LED:%v,%v,%v\n", lastAqiColor.R, lastAqiColor.G, lastAqiColor.B)
-				led.SetRGB(lastAqiColor.R, lastAqiColor.G, lastAqiColor.B)
-				for i := 0; i < 8; i++ {
-					time.Sleep(time.Second)
-					led.Toggle() // off
-					time.Sleep(200 * time.Millisecond)
-					led.Toggle() // on
+				for i := 0; i < 10; i++ {
+					// set to AQI color
+					led.SetRGB(lastAqiColor.R, lastAqiColor.G, lastAqiColor.B)
+					time.Sleep(500 * time.Millisecond)
+					// set to temperature color
+					led.SetRGB(lastTempColor.R, lastTempColor.G, lastTempColor.B)
+					time.Sleep(500 * time.Millisecond)
 				}
 				// solid RGB for temperature
 				//log.Printf("Set Temperature RGB LED:%v,%v,%v\n", lastTempColor.R, lastTempColor.G, lastTempColor.B)
