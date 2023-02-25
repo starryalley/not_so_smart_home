@@ -11,7 +11,7 @@ require (
 	github.com/scotow/notigo v0.0.0-20191218104518-0a1212602ede
 	github.com/starryalley/go-dht v0.0.0-20200427061452-f2f4413299ee
 	gobot.io/x/gobot v1.14.0
-	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
+	golang.org/x/net v0.7.0
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	google.golang.org/api v0.22.0
 )
